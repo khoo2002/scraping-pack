@@ -230,8 +230,8 @@ if __name__ == "__main__":
         formatted_date = date_obj.strftime("%Y-%m-%d")    
     
         if latest_record != None:
-            latest_date = latest_record[2]
-            latest_title = latest_record[1] 
+            latest_date = latest_record[0][2]
+            latest_title = latest_record[0][1] 
             print(latest_title)
             print(latest_date)
             print(title)
