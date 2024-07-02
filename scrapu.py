@@ -226,7 +226,8 @@ if __name__ == "__main__":
         link_url, title, date = get_info_from_tr(get_n_tr_elements(html,i))
         date_obj = datetime.strptime(date, "%d %b %Y")
         formatted_date = date_obj.strftime("%Y-%m-%d")    
-                
+        latest_date = "2002-11-26"
+        latest_title = "My Birthday ^_^"
         if latest_record != []:
             latest_date = latest_record[0][2]
             latest_title = latest_record[0][1] 
@@ -237,12 +238,9 @@ if __name__ == "__main__":
             print(formatted_date)
             print(type(formatted_date))
             print(latest_title == title)
-            print(str(latest_date) == str(formatted_date))
-        else:
-            latest_date = "2002-11-26"
-            latest_title = "My Birthday ^_^"
+            print(str(latest_date) == str(formatted_date))    
 
-        if title == latest_record and str(formatted_date) == str(latest_date):
+        if title == latest_title and str(formatted_date) == str(latest_date):
             print("Update finished ! - From Zhao Wei -_-")
             break
 
