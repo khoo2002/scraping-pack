@@ -230,14 +230,14 @@ if __name__ == "__main__":
         if latest_record != []:
             latest_date = latest_record[0][2]
             latest_title = latest_record[0][1] 
-            print(latest_title)
-            print(latest_date)
-            print(type(latest_date))
-            print(title)
-            print(formatted_date)
-            print(type(formatted_date))
-            print(latest_title == title)
-            print(latest_date == formatted_date)
+            # print(latest_title)
+            # print(latest_date)
+            # print(type(latest_date))            
+            # print(title)
+            # print(formatted_date)
+            # print(type(formatted_date))
+            # print(latest_title == title)
+            print(str(latest_date) == str(formatted_date))
         else:
             latest_date = "2002-11-26"
             latest_title = "My Birthday ^_^"
