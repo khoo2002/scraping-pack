@@ -242,7 +242,7 @@ if __name__ == "__main__":
             latest_date = "2002-11-26"
             latest_title = "My Birthday ^_^"
 
-        if title == latest_record and formatted_date == latest_date:
+        if title == latest_record and str(formatted_date) == str(latest_date):
             print("Update finished ! - From Zhao Wei -_-")
             break
 
