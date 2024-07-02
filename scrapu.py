@@ -234,6 +234,8 @@ if __name__ == "__main__":
             print(latest_date)
             print(title)
             print(formatted_date)
+            print(latest_title == title)
+            print(latest_date == formatted_date)
         else:
             latest_date = "2002-11-26"
             latest_title = "My Birthday ^_^"
