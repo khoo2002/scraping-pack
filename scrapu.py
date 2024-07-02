@@ -232,8 +232,10 @@ if __name__ == "__main__":
             latest_title = latest_record[0][1] 
             print(latest_title)
             print(latest_date)
+            print(type(latest_date))
             print(title)
             print(formatted_date)
+            print(type(formatted_date))
             print(latest_title == title)
             print(latest_date == formatted_date)
         else:
