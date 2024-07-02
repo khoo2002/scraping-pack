@@ -222,6 +222,7 @@ def get_info_from_sublink(link,title,date):
 
 if __name__ == "__main__":
     pmodatabase = PMOSpeechData()
+    pmodatabase.create_record("title", "2020-11-26", "url", "pdf_path")
     latest_record = pmodatabase.get_latest_records(limit=1)
     html = get_html()
     print(latest_record)
@@ -231,7 +232,7 @@ if __name__ == "__main__":
         date_obj = datetime.strptime(date, "%d %b %Y")
         formatted_date = date_obj.strftime("%Y-%m-%d")    
                 
-        if latest_record != None:
+        if latest_record != None or latest_record != None:
             latest_date = latest_record[0][2]
             latest_title = latest_record[0][1] 
             print(latest_title)
