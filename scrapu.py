@@ -224,11 +224,13 @@ if __name__ == "__main__":
     pmodatabase = PMOSpeechData()
     latest_record = pmodatabase.get_latest_records(limit=1)
     html = get_html()
+    print(latest_record)
+    print(type(latest_record))
     for i in range(1,count_tr_elements(html)+1):
         link_url, title, date = get_info_from_tr(get_n_tr_elements(html,i))
         date_obj = datetime.strptime(date, "%d %b %Y")
         formatted_date = date_obj.strftime("%Y-%m-%d")    
-    
+                
         if latest_record != None:
             latest_date = latest_record[0][2]
             latest_title = latest_record[0][1] 
