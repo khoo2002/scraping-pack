@@ -112,7 +112,6 @@ def download_pdf(url, filename):
     # Check if the request was successful
     if response.status_code == 200:
         # Open a local file in binary write mode
-        print(filename)
         with open(filename, 'wb') as f:
             f.write(response.content)
         print(f"PDF downloaded successfully as {filename}.")
@@ -214,7 +213,6 @@ def get_info_from_sublink(link,title,date):
     filenameTmp1 = "tmp_{}_{}.pdf".format(date, sanitized_title)
     filenameTmp2 = f"{date}_laterreplace.pdf"
     download_pdf(pdf_link, filenameTmp1)
-    print(content_text)
     text_to_pdf(content_text, filenameTmp2)
     merge_pdfs([filenameTmp1, filenameTmp2], filename)
     delete_pdf(filenameTmp1, filenameTmp2)
@@ -229,7 +227,7 @@ if __name__ == "__main__":
         date_obj = datetime.strptime(date, "%d %b %Y")
         formatted_date = date_obj.strftime("%Y-%m-%d")    
                 
-        if latest_record != None or latest_record != []:
+        if latest_record != []:
             latest_date = latest_record[0][2]
             latest_title = latest_record[0][1] 
             print(latest_title)
