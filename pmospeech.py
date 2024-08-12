@@ -11,7 +11,7 @@ from datetime import datetime
 
 
 
-pdf_store_path = "../uploaded/"
+pdf_store_path = "../uningest/"
 database_store_path = "../database/"
 # Check if the pdf_store_path exists
 if not os.path.exists(pdf_store_path):
