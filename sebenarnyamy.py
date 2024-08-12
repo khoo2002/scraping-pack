@@ -112,7 +112,7 @@ while True:
             if(sebenarnyaMYData.is_link_in_database(link) == False):
                 sebenarnyaMYData.create_record("SebenarnyaMY", link)
                 print("Added: ", link)
-                DownloadSaveAsLocalPDF.DownloadSaveAsLocalPDF(link, r"C:\Users\khooz\Downloads\Internship\scraping-pack", 3)
+                DownloadSaveAsLocalPDF.DownloadSaveAsLocalPDF(link, pdf_store_path, 3)
             else:
                 print("Already in database: ", link)
         numberPage += 1
