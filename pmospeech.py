@@ -104,6 +104,15 @@ class PMOSpeechData:
         with duckdb.connect(self.database) as conn:
             query = "SELECT * FROM PMO_speech_data ORDER BY date DESC LIMIT ?"
             return conn.execute(query, (limit,)).fetchall()
+    
+    def is_link_in_database(self, url):
+        """
+        Check if a given URL exists in the PMO_speech_data table.
+        """
+        query = "SELECT 1 FROM PMO_speech_data WHERE url = ? LIMIT 1;"
+        with duckdb.connect(self.database) as conn:
+            result = conn.execute(query, (url,)).fetchone()
+            return result is not None
 
 
 def download_pdf(url, filename):
@@ -153,8 +162,7 @@ def get_request_from_sublink(link):
     response = requests.get(link,verify=False)
     return response.text
 
-def get_html():
-    url = 'https://www.pmo.gov.my/speech'
+def get_html(url):
     response = requests.get(url,verify=False)
     soup = BeautifulSoup(response.text, 'html.parser')
     return soup.prettify()
@@ -189,10 +197,11 @@ def get_info_from_sublink(link,title,date):
     tags_of_interest = ['p', 'ol', 'ul', 'li']  # Add more tags as needed
 
     # Find all elements of the specified tags
-    elements = soup.find_all(tags_of_interest)
+    elements = entry_content_div.find_all(tags_of_interest)
 
     # Extract and print the text from each element
     content_text = ''
+    content_text += 'Source: '+ link +'\nTitle: ' + title + '\nDate: ' + date + '\n'
     for element in elements:
         content_text += element.get_text(strip=True) + ' '
     
@@ -220,35 +229,18 @@ def get_info_from_sublink(link,title,date):
 
 if __name__ == "__main__":
     pmodatabase = PMOSpeechData()
-    latest_record = pmodatabase.get_latest_records(limit=1)
-    html = get_html()
+    html = get_html('https://www.pmo.gov.my/speech/')
     for i in range(1,count_tr_elements(html)+1):
         link_url, title, date = get_info_from_tr(get_n_tr_elements(html,i))
-        date_obj = datetime.strptime(date, "%d %b %Y")
-        formatted_date = date_obj.strftime("%Y-%m-%d")    
-        latest_date = "2002-11-26"
-        latest_title = "My Birthday ^_^"
-        if latest_record != []:
-            latest_date = latest_record[0][2]
-            latest_title = latest_record[0][1] 
-            # print(latest_title)
-            # print(latest_date)
-            # print(type(latest_date))            
-            # print(title)
-            # print(formatted_date)
-            # print(type(formatted_date))
-            # print(latest_title == title)
-            # print(str(latest_date) == str(formatted_date))    
+        if(not pmodatabase.is_link_in_database(link_url)):
+            date_obj = datetime.strptime(date, "%d %b %Y")
+            formatted_date = date_obj.strftime("%Y-%m-%d")    
+            title, date, filename = get_info_from_sublink(link_url,title,date)
+            pmodatabase.create_record(title,formatted_date,link_url,filename)
+            print(f"{date} - {title} - {link_url} saved in database - I am so tired ;_;")
+        else:
+            print(f"{date} - {title} - {link_url} already in database - Continue digging")
 
-        if title == latest_title and str(formatted_date) == str(latest_date):
-            print("Update finished ! - From Zhao Wei -_-")
-            break
-
-        title, date, filename = get_info_from_sublink(link_url,title,date)
-        pmodatabase.create_record(title,formatted_date,link_url,filename)
-        print(f"{date} - {title} - {filename} saved in database - I am so tired ;_;")
-
-    print(pmodatabase.read_records())
     print("PMOScrap - update done! - So tired")
     exit()
 
