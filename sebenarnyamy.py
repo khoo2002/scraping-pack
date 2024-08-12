@@ -113,8 +113,7 @@ class SebenarnyaMYData:
             result = conn.execute(query, (url,)).fetchone()
         
         return result is not None
-
-<<<<<<< HEAD
+    
 def get_request_from_sublink(link):
     response = requests.get(link,verify=False)
     return response.text
@@ -188,8 +187,9 @@ if __name__ == "__main__":
             xml = xml.split("<loc>")
             print("Page ", numberPage)
             print("Total links: ", len(xml))
-            for i in range(0, len(xml)):
+            for i in range(1, len(xml)):
                 link = xml[i].split("</loc>")[0]
+                print(link)
                 if(sebenarnyaMYData.is_link_in_database(link) == False):
                     title, date, filename = get_info_from_sublink(link)
                     sebenarnyaMYData.create_record(title, date, link)
