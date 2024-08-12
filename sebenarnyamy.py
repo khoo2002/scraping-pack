@@ -114,6 +114,7 @@ class SebenarnyaMYData:
         
         return result is not None
 
+<<<<<<< HEAD
 def get_request_from_sublink(link):
     response = requests.get(link,verify=False)
     return response.text
@@ -201,5 +202,3 @@ if __name__ == "__main__":
             break
     print("Sebenarnya My Scrap - update done! - So tired")
     exit()
-
-
