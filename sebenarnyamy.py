@@ -110,7 +110,7 @@ while True:
         for i in range(1, len(xml)):
             link = xml[i].split("</loc>")[0]
             if(sebenarnyaMYData.is_link_in_database(link) == False):
-                sebenarnyaMYData.create_record("SebenarnyaMY", link)
+                sebenarnyaMYData.create_record(link)
                 print("Added: ", link)
                 DownloadSaveAsLocalPDF.DownloadSaveAsLocalPDF(link, pdf_store_path, 3)
             else:
