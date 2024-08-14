@@ -7,7 +7,8 @@ from fpdf import FPDF
 import requests
 import os
 import duckdb
-
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 str = "https://sebenarnya.my/wp-sitemap-posts-post-{}.xml"
 numberPage = 1
 
