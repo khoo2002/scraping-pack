@@ -4,12 +4,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from PyPDF2 import PdfReader, PdfWriter
 from fpdf import FPDF
-import io
+import requests
 import os
-import duckdb 
-from datetime import datetime
+import duckdb
 
-
+str = "https://sebenarnya.my/wp-sitemap-posts-post-{}.xml"
+numberPage = 1
 
 pdf_store_path = "../uningest/"
 database_store_path = "../database/"
@@ -23,8 +23,8 @@ if not os.path.exists(database_store_path):
     os.makedirs(database_store_path)
 
 
-class PMOSpeechData:
-    database = os.path.join(database_store_path,"PMOSpeech.db")
+class SebenarnyaMYData:
+    database = os.path.join(database_store_path,"SebenarnyaMY.db")
     def __init__(self, db_path=database):
         self.database = db_path
         self._initialize_db()
@@ -35,39 +35,38 @@ class PMOSpeechData:
         """
         with duckdb.connect(self.database) as conn:
             conn.execute("""
-            CREATE TABLE IF NOT EXISTS PMO_speech_data (
+            CREATE TABLE IF NOT EXISTS SebenarnyaMY (
                 number INTEGER PRIMARY KEY,
                 title VARCHAR NOT NULL,
                 date DATE NOT NULL,
-                url VARCHAR NOT NULL,
-                pdf_path VARCHAR NOT NULL
+                url VARCHAR NOT NULL
             );
-            
+
             CREATE SEQUENCE IF NOT EXISTS seq_number START 1;
             """)
 
-    def create_record(self, title, date, url, pdf_path):
+    def create_record(self, title, date, url):
         """
         Create a new record in the PMO_speech_data table.
         """
         with duckdb.connect(self.database) as conn:
-            query = "INSERT INTO PMO_speech_data (number, title, date, url, pdf_path) VALUES (NEXTVAL('seq_number'),?, ?, ?, ?)"
-            conn.execute(query, (title, date, url, pdf_path))
+            query = "INSERT INTO SebenarnyaMY (number, title, date, url) VALUES (NEXTVAL('seq_number'),?, ?, ?)"
+            conn.execute(query, (title, date, url))
 
     def read_records(self):
         """
         Read all records from the PMO_speech_data table.
         """
         with duckdb.connect(self.database) as conn:
-            return conn.execute("SELECT * FROM PMO_speech_data").fetchall()
+            return conn.execute("SELECT * FROM SebenarnyaMY").fetchall()
 
-    def update_record(self, number, new_title=None, new_date=None, new_url=None, new_pdf_path=None):
+    def update_record(self, number, new_title=None, new_date=None, new_url=None):
         """
-        Update an existing record in the PMO_speech_data table.
+        Update an existing record in the SebenarnyaMY table.
         """
         updates = []
         parameters = []
-        
+
         if new_title:
             updates.append("title = ?")
             parameters.append(new_title)
@@ -77,13 +76,11 @@ class PMOSpeechData:
         if new_url:
             updates.append("url = ?")
             parameters.append(new_url)
-        if new_pdf_path:
-            updates.append("pdf_path = ?")
-            parameters.append(new_pdf_path)
-        
+
+
         parameters.append(number)
         query = f"UPDATE PMO_speech_data SET {', '.join(updates)} WHERE number = ?"
-        
+
         with duckdb.connect(self.database) as conn:
             conn.execute(query, parameters)
 
@@ -92,71 +89,29 @@ class PMOSpeechData:
         Delete a record from the PMO_speech_data table.
         """
         with duckdb.connect(self.database) as conn:
-            conn.execute("DELETE FROM PMO_speech_data WHERE number = ?", (number,))
+            conn.execute("DELETE FROM SebenarnyaMY WHERE number = ?", (number,))
 
     def get_latest_records(self, limit=10):
         """
         Get the latest records from the database, ordered by date.
-        
+
         :param limit: The maximum number of records to return.
         :return: A list of the latest records, up to the specified limit.
         """
         with duckdb.connect(self.database) as conn:
-            query = "SELECT * FROM PMO_speech_data ORDER BY date DESC LIMIT ?"
+            query = "SELECT * FROM SebenarnyaMY ORDER BY date DESC LIMIT ?"
             return conn.execute(query, (limit,)).fetchall()
-    
+
     def is_link_in_database(self, url):
         """
-        Check if a given URL exists in the PMO_speech_data table.
+        Check if a given URL is already in the SebenarnyaMY table.
         """
-        query = "SELECT 1 FROM PMO_speech_data WHERE url = ? LIMIT 1;"
+        query = "SELECT 1 FROM SebenarnyaMY WHERE url = ? LIMIT 1"
+
         with duckdb.connect(self.database) as conn:
             result = conn.execute(query, (url,)).fetchone()
-            return result is not None
 
-
-def download_pdf(url, filename):
-    # Send a GET request to the URL
-    response = requests.get(url, stream=True, verify=False)
-    # Check if the request was successful
-    if response.status_code == 200:
-        # Open a local file in binary write mode
-        with open(filename, 'wb') as f:
-            f.write(response.content)
-        print(f"PDF downloaded successfully as {filename}.")
-    else:
-        print("Failed to download the PDF.")
-
-def text_to_pdf(text, output_file):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)  
-    latin_text = text.encode('latin-1', 'replace').decode('latin-1')
-    # Define the width and height of the multi_cell
-    cell_width = 190  # Adjust the width to fit your layout
-    cell_height = 10  # Adjust the height based on your font size and preference
-    pdf.multi_cell(cell_width, cell_height, txt=latin_text, align='L')
-    pdf.output(output_file)
-
-def merge_pdfs(pdf_list, output):
-    pdf_writer = PdfWriter()
-    for pdf in pdf_list:
-        pdf_reader = PdfReader(pdf)
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            pdf_writer.add_page(page)
-    with open(output, 'wb') as out:
-        pdf_writer.write(out)
-
-def delete_pdf(*filenames):
-    for filename in filenames:
-        try:
-            os.remove(filename)
-            print(f"Deleted {filename}")
-        except FileNotFoundError:
-            print(f"{filename} not found")
-        except Exception as e:
-            print(f"Error deleting {filename}: {e}")
+        return result is not None
 
 def get_request_from_sublink(link):
     response = requests.get(link,verify=False)
@@ -167,82 +122,87 @@ def get_html(url):
     soup = BeautifulSoup(response.text, 'html.parser')
     return soup.prettify()
 
-def count_tr_elements(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    td_elements = soup.findAll('tr')
-    return len(td_elements)-1
-
-def get_n_tr_elements(html,n):
-    soup = BeautifulSoup(html, 'html.parser')
-    td_elements = soup.findAll('tr')
-    return td_elements[n]
-
-def get_info_from_tr(tr_element):
-    td_elements = tr_element.findAll('td')
-    link = td_elements[0].find('a')['href']
-    title = td_elements[0].text.replace("\n","")
-    title = title.strip()
-    date = td_elements[1].text.replace("\n","")
-    date = date.strip()
-
-    return link, title, date
-
-def get_info_from_sublink(link,title,date):
+def get_info_from_sublink(link):
     html = get_request_from_sublink(link)
     soup = BeautifulSoup(html, 'html.parser')
-    content = soup.find(id='primary').main.article
-    entry_content_div = content.find('div', {'class': 'entry-content'})
-    # Extracting text from the 'div'
-    # Specify the tags you're interested in
-    tags_of_interest = ['p', 'ol', 'ul', 'li']  # Add more tags as needed
-
-    # Find all elements of the specified tags
-    elements = entry_content_div.find_all(tags_of_interest)
-
-    # Extract and print the text from each element
-    content_text = ''
-    content_text += 'Source: '+ link +'\nTitle: ' + title + '\nDate: ' + date + '\n'
-    for element in elements:
-        content_text += element.get_text(strip=True) + ' '
+    # content = soup.find(id='primary').main.article
+    title = soup.find('h1', {'class': 'entry-title'})
+    if(title != None):
+        title = title.get_text(strip=True)
+    else:
+        title = link.split('/')[-2]
+    date = soup.find('time', {'class': 'entry-date'}).get_text(strip=True)
+    if (date != None and date != ''):
+        "hi"
+    else:
+        date = "26/11/2002"
+        
+    content_div_text = soup.find('div', {'class': 'td-post-content'})
+    if (content_div_text != None):
+        # Extracting text from the 'div'
+        # Specify the tags you're interested in
+        tags_of_interest = ['p', 'ol', 'ul', 'li']  # Add more tags as needed
     
-    pdf_link = content.find('object', class_='wp-block-file__embed')['data']
-    # Split the title at ':' and take the part after it if it exists, otherwise use the whole title
+        # Find all elements of the specified tags
+        elements = content_div_text.find_all(tags_of_interest)
+    
+        # Extract and print the text from each element
+        content_text = ''
+        content_text += 'Source: Sebenarnya My ('+ link +')\nTitle: ' + title + '\nDate: ' + date + '\n'
+        for element in elements:
+            content_text += element.get_text(strip=True) + ' '
+
     title_part = title.split(':')[-1].strip()
-    # Limit the title part to a maximum of 50 characters to ensure the filename is not too long
     max_length = 40
     if len(title_part) > max_length:
         title_part = title_part[:max_length]
-    # Sanitize the title to remove/replace characters not allowed in filenames
-    # This is a basic example; you might need to expand it based on your requirements
     sanitized_title = title_part.replace('/', '-').replace('\\', '-')
-    # Use the sanitized and possibly shortened title in the filename
-    
-    filename = "{}_{}.pdf".format(date, sanitized_title)
+    title = sanitized_title
+    formatted_date = date.split('/')[2]+"-"+date.split('/')[1]+"-"+date.split('/')[0]
+    filename = "{}_{}.pdf".format(formatted_date, sanitized_title)
     filename = os.path.join(pdf_store_path, filename)
-    filenameTmp1 = "tmp_{}_{}.pdf".format(date, sanitized_title)
-    filenameTmp2 = f"{date}_laterreplace.pdf"
-    download_pdf(pdf_link, filenameTmp1)
-    text_to_pdf(content_text, filenameTmp2)
-    merge_pdfs([filenameTmp1, filenameTmp2], filename)
-    delete_pdf(filenameTmp1, filenameTmp2)
-    return title, date, filename
+
+    # filenameTmp1 = "tmp_{}_{}.pdf".format(date, sanitized_title)
+    # filenameTmp2 = f"{date}_laterreplace.pdf"
+    # download_pdf(pdf_link, filenameTmp1)
+    text_to_pdf(content_text, filename)
+    # merge_pdfs([filenameTmp1, filenameTmp2], filename)
+    # delete_pdf(filenameTmp1, filenameTmp2)
+    return title, formatted_date, filename
+
+def text_to_pdf(text, output_file):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    latin_text = text.encode('latin-1', 'replace').decode('latin-1')
+    # Define the width and height of the multi_cell
+    cell_width = 190  # Adjust the width to fit your layout
+    cell_height = 10  # Adjust the height based on your font size and preference
+    pdf.multi_cell(cell_width, cell_height, txt=latin_text, align='L')
+    pdf.output(output_file)
 
 if __name__ == "__main__":
-    pmodatabase = PMOSpeechData()
-    html = get_html('https://www.pmo.gov.my/speech/')
-    for i in range(1,count_tr_elements(html)+1):
-        link_url, title, date = get_info_from_tr(get_n_tr_elements(html,i))
-        if(not pmodatabase.is_link_in_database(link_url)):
-            date_obj = datetime.strptime(date, "%d %b %Y")
-            formatted_date = date_obj.strftime("%Y-%m-%d")    
-            title, date, filename = get_info_from_sublink(link_url,title,date)
-            pmodatabase.create_record(title,formatted_date,link_url,filename)
-            print(f"{date} - {title} - {link_url} saved in database - I am so tired ;_;")
+    sebenarnyaMYData = SebenarnyaMYData()
+    while True:
+        response = requests.get(str.format(numberPage))
+        if response.status_code == 200:
+            xml = response.text
+            xml = xml.split("<loc>")
+            print("Page ", numberPage)
+            print("Total links: ", len(xml))
+            for i in range(1, len(xml)):
+                link = xml[i].split("</loc>")[0]
+                print(link)
+                if(sebenarnyaMYData.is_link_in_database(link) == False):
+                    title, date, filename = get_info_from_sublink(link)
+                    sebenarnyaMYData.create_record(title, date, link)
+                    print("Added: ", link)
+                else:
+                    print("Already in database: ", link)
+            numberPage += 1
         else:
-            print(f"{date} - {title} - {link_url} already in database - Continue digging")
-
-    print("PMOScrap - update done! - So tired")
+            numberPage -= 1
+            break
+    print("Sebenarnya My Scrap - update done! - So tired")
+    
     exit()
-
-
-        
