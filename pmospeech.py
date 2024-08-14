@@ -231,7 +231,6 @@ def get_info_from_sublink(link,title,date):
         else:
             text_to_pdf(content_text, filename)
         return title, date, filename
-    print('Error')
     return None
 
 if __name__ == "__main__":
