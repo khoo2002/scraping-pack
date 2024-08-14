@@ -8,7 +8,8 @@ import io
 import os
 import duckdb
 from datetime import datetime
-
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 pdf_store_path = "../uningest/"
