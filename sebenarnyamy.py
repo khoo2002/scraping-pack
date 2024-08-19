@@ -1,70 +1,67 @@
+import os
+import logging
 import requests
 from bs4 import BeautifulSoup
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from PyPDF2 import PdfReader, PdfWriter
 from fpdf import FPDF
-import requests
-import os
 import duckdb
 import urllib3
+
+# Suppress insecure request warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-str = "https://sebenarnya.my/wp-sitemap-posts-post-{}.xml"
-numberPage = 1
 
-pdf_store_path = "../uningest/"
-database_store_path = "../database/"
-# Check if the pdf_store_path exists
-if not os.path.exists(pdf_store_path):
-    # If it doesn't exist, create the directory
-    os.makedirs(pdf_store_path)
+# Constants
+XML_URL_TEMPLATE = "https://sebenarnya.my/wp-sitemap-posts-post-{}.xml"
+PDF_STORE_PATH = "../uningest/"
+DATABASE_STORE_PATH = "../database/"
+NUMBER_PAGE_START = 1
 
-if not os.path.exists(database_store_path):
-    # If it doesn't exist, create the directory
-    os.makedirs(database_store_path)
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
+# Ensure necessary directories exist
+os.makedirs(PDF_STORE_PATH, exist_ok=True)
+os.makedirs(DATABASE_STORE_PATH, exist_ok=True)
 
 class SebenarnyaMYData:
-    database = os.path.join(database_store_path,"SebenarnyaMY.db")
-    def __init__(self, db_path=database):
+    def __init__(self, db_path=os.path.join(DATABASE_STORE_PATH, "SebenarnyaMY.db")):
         self.database = db_path
         self._initialize_db()
 
     def _initialize_db(self):
-        """
-        Initialize the database by creating the table if it does not exist.
-        """
-        with duckdb.connect(self.database) as conn:
-            conn.execute("""
-            CREATE TABLE IF NOT EXISTS SebenarnyaMY (
-                number INTEGER PRIMARY KEY,
-                title VARCHAR NOT NULL,
-                date DATE NOT NULL,
-                url VARCHAR NOT NULL
-            );
-
-            CREATE SEQUENCE IF NOT EXISTS seq_number START 1;
-            """)
+        try:
+            with duckdb.connect(self.database) as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS SebenarnyaMY (
+                        number INTEGER PRIMARY KEY,
+                        title VARCHAR NOT NULL,
+                        date DATE NOT NULL,
+                        url VARCHAR NOT NULL
+                    );
+                    CREATE SEQUENCE IF NOT EXISTS seq_number START 1;
+                """)
+            logger.info("Database initialized.")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
 
     def create_record(self, title, date, url):
-        """
-        Create a new record in the PMO_speech_data table.
-        """
-        with duckdb.connect(self.database) as conn:
-            query = "INSERT INTO SebenarnyaMY (number, title, date, url) VALUES (NEXTVAL('seq_number'),?, ?, ?)"
-            conn.execute(query, (title, date, url))
+        try:
+            with duckdb.connect(self.database) as conn:
+                query = "INSERT INTO SebenarnyaMY (number, title, date, url) VALUES (NEXTVAL('seq_number'), ?, ?, ?)"
+                conn.execute(query, (title, date, url))
+            logger.info(f"Record created: {title}, {date}, {url}")
+        except Exception as e:
+            logger.error(f"Error creating record: {e}")
 
     def read_records(self):
-        """
-        Read all records from the PMO_speech_data table.
-        """
-        with duckdb.connect(self.database) as conn:
-            return conn.execute("SELECT * FROM SebenarnyaMY").fetchall()
+        try:
+            with duckdb.connect(self.database) as conn:
+                return conn.execute("SELECT * FROM SebenarnyaMY").fetchall()
+        except Exception as e:
+            logger.error(f"Error reading records: {e}")
+            return []
 
     def update_record(self, number, new_title=None, new_date=None, new_url=None):
-        """
-        Update an existing record in the SebenarnyaMY table.
-        """
         updates = []
         parameters = []
 
@@ -78,132 +75,148 @@ class SebenarnyaMYData:
             updates.append("url = ?")
             parameters.append(new_url)
 
-
-        parameters.append(number)
-        query = f"UPDATE PMO_speech_data SET {', '.join(updates)} WHERE number = ?"
-
-        with duckdb.connect(self.database) as conn:
-            conn.execute(query, parameters)
+        if updates:
+            parameters.append(number)
+            query = f"UPDATE SebenarnyaMY SET {', '.join(updates)} WHERE number = ?"
+            try:
+                with duckdb.connect(self.database) as conn:
+                    conn.execute(query, parameters)
+                logger.info(f"Record updated: {number}")
+            except Exception as e:
+                logger.error(f"Error updating record: {e}")
 
     def delete_record(self, number):
-        """
-        Delete a record from the PMO_speech_data table.
-        """
-        with duckdb.connect(self.database) as conn:
-            conn.execute("DELETE FROM SebenarnyaMY WHERE number = ?", (number,))
+        try:
+            with duckdb.connect(self.database) as conn:
+                conn.execute("DELETE FROM SebenarnyaMY WHERE number = ?", (number,))
+            logger.info(f"Record deleted: {number}")
+        except Exception as e:
+            logger.error(f"Error deleting record: {e}")
 
     def get_latest_records(self, limit=10):
-        """
-        Get the latest records from the database, ordered by date.
-
-        :param limit: The maximum number of records to return.
-        :return: A list of the latest records, up to the specified limit.
-        """
-        with duckdb.connect(self.database) as conn:
-            query = "SELECT * FROM SebenarnyaMY ORDER BY date DESC LIMIT ?"
-            return conn.execute(query, (limit,)).fetchall()
+        try:
+            with duckdb.connect(self.database) as conn:
+                query = "SELECT * FROM SebenarnyaMY ORDER BY date DESC LIMIT ?"
+                return conn.execute(query, (limit,)).fetchall()
+        except Exception as e:
+            logger.error(f"Error getting latest records: {e}")
+            return []
 
     def is_link_in_database(self, url):
-        """
-        Check if a given URL is already in the SebenarnyaMY table.
-        """
         query = "SELECT 1 FROM SebenarnyaMY WHERE url = ? LIMIT 1"
+        try:
+            with duckdb.connect(self.database) as conn:
+                result = conn.execute(query, (url,)).fetchone()
+            return result is not None
+        except Exception as e:
+            logger.error(f"Error checking link in database: {e}")
+            return False
 
-        with duckdb.connect(self.database) as conn:
-            result = conn.execute(query, (url,)).fetchone()
+def fetch_html(url):
+    try:
+        response = requests.get(url, verify=False)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as e:
+        logger.error(f"Error fetching {url}: {e}")
+        return ""
 
-        return result is not None
+def parse_html(html):
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        return soup
+    except Exception as e:
+        logger.error(f"Error parsing HTML: {e}")
+        return None
 
-def get_request_from_sublink(link):
-    response = requests.get(link,verify=False)
-    return response.text
+def extract_info_from_soup(soup, link):
+    try:
+        title_tag = soup.find('h1', {'class': 'entry-title'})
+        title = title_tag.get_text(strip=True) if title_tag else link.split('/')[-2]
 
-def get_html(url):
-    response = requests.get(url,verify=False)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    return soup.prettify()
+        date_tag = soup.find('time', {'class': 'entry-date'})
+        date = date_tag.get_text(strip=True) if date_tag else "26/11/2002"
 
-def get_info_from_sublink(link):
-    html = get_request_from_sublink(link)
-    soup = BeautifulSoup(html, 'html.parser')
-    # content = soup.find(id='primary').main.article
-    title = soup.find('h1', {'class': 'entry-title'})
-    if(title != None):
-        title = title.get_text(strip=True)
-    else:
-        title = link.split('/')[-2]
-    date = soup.find('time', {'class': 'entry-date'}).get_text(strip=True)
-    if (date != None and date != ''):
-        "hi"
-    else:
-        date = "26/11/2002"
-        
-    content_div_text = soup.find('div', {'class': 'td-post-content'})
-    if (content_div_text != None):
-        # Extracting text from the 'div'
-        # Specify the tags you're interested in
-        tags_of_interest = ['p', 'ol', 'ul', 'li']  # Add more tags as needed
-    
-        # Find all elements of the specified tags
-        elements = content_div_text.find_all(tags_of_interest)
-    
-        # Extract and print the text from each element
-        content_text = ''
-        content_text += 'Source: Sebenarnya My ('+ link +')\nTitle: ' + title + '\nDate: ' + date + '\n'
-        for element in elements:
-            content_text += element.get_text(strip=True) + ' '
+        content_div = soup.find('div', {'class': 'td-post-content'})
+        content_text = ""
+        if content_div:
+            tags_of_interest = ['p', 'ol', 'ul', 'li']
+            elements = content_div.find_all(tags_of_interest)
+            content_text += f'Source: Sebenarnya My ({link})\nTitle: {title}\nDate: {date}\n'
+            for element in elements:
+                content_text += element.get_text(strip=True) + ' '
 
-    title_part = title.split(':')[-1].strip()
-    max_length = 40
-    if len(title_part) > max_length:
-        title_part = title_part[:max_length]
-    sanitized_title = title_part.replace('/', '-').replace('\\', '-')
-    title = sanitized_title
-    formatted_date = date.split('/')[2]+"-"+date.split('/')[1]+"-"+date.split('/')[0]
-    filename = "{}_{}.pdf".format(formatted_date, sanitized_title)
-    filename = os.path.join(pdf_store_path, filename)
+        return title, date, content_text
+    except Exception as e:
+        logger.error(f"Error extracting info from soup: {e}")
+        return "", "", ""
 
-    # filenameTmp1 = "tmp_{}_{}.pdf".format(date, sanitized_title)
-    # filenameTmp2 = f"{date}_laterreplace.pdf"
-    # download_pdf(pdf_link, filenameTmp1)
-    text_to_pdf(content_text, filename)
-    # merge_pdfs([filenameTmp1, filenameTmp2], filename)
-    # delete_pdf(filenameTmp1, filenameTmp2)
-    return title, formatted_date, filename
+def format_title(title):
+    try:
+        title_part = title.split(':')[-1].strip()
+        max_length = 40
+        if len(title_part) > max_length:
+            title_part = title_part[:max_length]
+        return title_part.replace('/', '-').replace('\\', '-')
+    except Exception as e:
+        logger.error(f"Error formatting title: {e}")
+        return "untitled"
 
-def text_to_pdf(text, output_file):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    latin_text = text.encode('latin-1', 'replace').decode('latin-1')
-    # Define the width and height of the multi_cell
-    cell_width = 190  # Adjust the width to fit your layout
-    cell_height = 10  # Adjust the height based on your font size and preference
-    pdf.multi_cell(cell_width, cell_height, txt=latin_text, align='L')
-    pdf.output(output_file)
+def save_text_to_pdf(text, output_file):
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        latin_text = text.encode('latin-1', 'replace').decode('latin-1')
+        cell_width = 190
+        cell_height = 10
+        pdf.multi_cell(cell_width, cell_height, txt=latin_text, align='L')
+        pdf.output(output_file)
+        logger.info(f"PDF saved: {output_file}")
+    except Exception as e:
+        logger.error(f"Error saving PDF: {e}")
+
+def main():
+    sebenarnyaMYData = SebenarnyaMYData()
+    page_number = NUMBER_PAGE_START
+
+    while True:
+        xml_url = XML_URL_TEMPLATE.format(page_number)
+        xml_content = fetch_html(xml_url)
+
+        if not xml_content:
+            logger.info(f"Stopping. No content found at page {page_number}.")
+            break
+
+        xml_parts = xml_content.split("<loc>")
+        logger.info(f"Page {page_number}")
+        logger.info(f"Total links: {len(xml_parts) - 1}")
+
+        for part in xml_parts[1:]:
+            link = part.split("</loc>")[0].strip()
+            logger.info(f"Processing link: {link}")
+
+            if not sebenarnyaMYData.is_link_in_database(link):
+                html_content = fetch_html(link)
+                soup = parse_html(html_content)
+                if soup:
+                    title, date, content_text = extract_info_from_soup(soup, link)
+
+                    formatted_date = date.split('/')[2] + "-" + date.split('/')[1] + "-" + date.split('/')[0]
+                    sanitized_title = format_title(title)
+                    filename = os.path.join(PDF_STORE_PATH, f"{formatted_date}_{sanitized_title}.pdf")
+
+                    save_text_to_pdf(content_text, filename)
+                    sebenarnyaMYData.create_record(title, date, link)
+                    logger.info(f"Added: {link}")
+                else:
+                    logger.warning(f"Failed to parse HTML for link: {link}")
+            else:
+                logger.info(f"Already in database: {link}")
+
+        page_number += 1
+
+    logger.info("Sebenarnya My Scrap - update done!")
 
 if __name__ == "__main__":
-    sebenarnyaMYData = SebenarnyaMYData()
-    while True:
-        response = requests.get(str.format(numberPage))
-        if response.status_code == 200:
-            xml = response.text
-            xml = xml.split("<loc>")
-            print("Page ", numberPage)
-            print("Total links: ", len(xml))
-            for i in range(1, len(xml)):
-                link = xml[i].split("</loc>")[0]
-                print(link)
-                if(sebenarnyaMYData.is_link_in_database(link) == False):
-                    title, date, filename = get_info_from_sublink(link)
-                    sebenarnyaMYData.create_record(title, date, link)
-                    print("Added: ", link)
-                else:
-                    print("Already in database: ", link)
-            numberPage += 1
-        else:
-            numberPage -= 1
-            break
-    print("Sebenarnya My Scrap - update done! - So tired")
-    
-    exit()
+    main()
